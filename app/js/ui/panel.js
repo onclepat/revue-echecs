@@ -8,7 +8,12 @@ import { el, percent } from "./dom.js";
 const RESULT = { win: "Victoire", loss: "Défaite", draw: "Nulle" };
 
 const RESULT_FILTERS = [["all", "Toutes"], ["win", "Gagnées"], ["loss", "Perdues"]];
-const TIME_FILTERS = [["all", "5 et 10 min"], ["5", "5 min"], ["10", "10 min"]];
+
+/** Cadences présentes dans une liste de parties, de la plus rapide à la plus lente. */
+export function cadencesOf(games) {
+  const seconds = new Map(games.map((game) => [game.cadence, game.cadenceSeconds]));
+  return [...seconds.keys()].sort((a, b) => seconds.get(a) - seconds.get(b));
+}
 
 /** « 2026/11 » → « novembre 2026 ». */
 export function monthLabel(month) {
@@ -22,7 +27,7 @@ export const countGames = (count) => `${count} partie${count > 1 ? "s" : ""}`;
 /** Parties retenues par les filtres de résultat et de cadence. */
 export function filterGames(games, filters) {
   return games.filter(
-    (game) => (filters.result === "all" || game.result === filters.result) && (filters.minutes === "all" || String(game.minutes) === filters.minutes),
+    (game) => (filters.result === "all" || game.result === filters.result) && (filters.cadence === "all" || game.cadence === filters.cadence),
   );
 }
 
@@ -38,20 +43,22 @@ function segmented(options, current, onPick, label) {
  * @param {object} view { months, month, games, filters, loading, activeUrl, onMonth, onFilter, onOpen }
  */
 export function gamesList({ months, month, games, filters, loading, activeUrl, onMonth, onFilter, onOpen }) {
-  if (!months.length) return [el("div", { class: "card empty", text: "Entrez votre pseudo Chess.com pour retrouver toutes vos parties de 5 et 10 minutes." })];
+  if (!months.length) return [el("div", { class: "card empty", text: "Entrez votre pseudo Chess.com pour retrouver toutes vos parties." })];
+  const cadences = loading ? [] : cadencesOf(games);
   const select = el("select", { class: "month-select", "aria-label": "Mois", onChange: (event) => onMonth(event.target.value) },
     months.map((value) => el("option", { value, selected: value === month, text: monthLabel(value) })),
   );
   const controls = el("div", { class: "games-controls" },
     select,
     segmented(RESULT_FILTERS, filters.result, (value) => onFilter({ result: value }), "Résultat"),
-    segmented(TIME_FILTERS, filters.minutes, (value) => onFilter({ minutes: value }), "Cadence"),
+    // Le filtre de cadence n'apparaît que si le mois en contient plusieurs, et ne propose que celles-là.
+    cadences.length > 1 && segmented([["all", "Toutes"], ...cadences.map((name) => [name, name])], filters.cadence, (value) => onFilter({ cadence: value }), "Cadence"),
   );
   if (loading) return [controls, el("div", { class: "card empty", text: `Chargement de ${monthLabel(month)}…` })];
   const shown = filterGames(games, filters);
   const count = el("h2", { class: "section-title", text: shown.length === games.length ? countGames(games.length) : `${countGames(shown.length)} sur ${games.length}` });
   if (!shown.length) {
-    const text = games.length ? "Aucune partie ne correspond à ces filtres." : "Aucune partie de 5 ou 10 minutes ce mois-là.";
+    const text = games.length ? "Aucune partie ne correspond à ces filtres." : "Aucune partie classique ce mois-là.";
     return [controls, count, el("div", { class: "card empty", text })];
   }
   const rows = shown.map((game) => {
@@ -66,7 +73,7 @@ export function gamesList({ months, month, games, filters, loading, activeUrl, o
       ),
       el("div", { class: "game-line" },
         el("span", { class: "side " + game.me, title: game.me === "w" ? "Vous aviez les Blancs" : "Vous aviez les Noirs" }),
-        `${game.opponent} (${game.opponentRating}) · ${game.minutes} min · ${game.how}`,
+        `${game.opponent} (${game.opponentRating}) · ${game.cadence} · ${game.how}`,
       ),
       game.opening && el("div", { class: "game-line", text: game.opening }),
     );

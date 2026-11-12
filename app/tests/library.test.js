@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { normalise } from "../js/data/chesscom.js";
+import { cadenceOf, normalise } from "../js/data/chesscom.js";
 import { createLibrary, isClosed } from "../js/data/library.js";
-import { filterGames, monthLabel } from "../js/ui/panel.js";
+import { cadencesOf, filterGames, monthLabel } from "../js/ui/panel.js";
 
 const NOW = Date.UTC(2026, 10, 12); // 12 novembre 2026
 
@@ -95,27 +95,35 @@ const RAW = {
 };
 
 test("partie Chess.com : champs utiles, camp, résultat, ouverture", () => {
-  const result = normalise(RAW, "onclepat", "2023/11", ["300", "600"]);
+  const result = normalise(RAW, "onclepat", "2023/11");
   assert.deepEqual(
-    { me: result.me, result: result.result, how: result.how, minutes: result.minutes, opponent: result.opponent, opening: result.opening, month: result.month },
-    { me: "w", result: "loss", how: "mat", minutes: 10, opponent: "Autre", opening: "Italian Game", month: "2023/11" },
+    { me: result.me, result: result.result, how: result.how, cadence: result.cadence, opponent: result.opponent, opening: result.opening, month: result.month },
+    { me: "w", result: "loss", how: "mat", cadence: "10 min", opponent: "Autre", opening: "Italian Game", month: "2023/11" },
   );
 });
 
-test("partie hors périmètre ignorée, format inattendu signalé", () => {
-  assert.equal(normalise({ ...RAW, time_control: "60" }, "onclepat", "2023/11", ["300", "600"]), null);
-  assert.equal(normalise({ ...RAW, rules: "chess960" }, "onclepat", "2023/11", ["300", "600"]), null);
-  assert.throws(() => normalise({ ...RAW, white: {} }, "onclepat", "2023/11", ["300", "600"]), /changé le format/);
+test("toutes les cadences sont conservées ; variantes ignorées ; format inattendu signalé", () => {
+  assert.equal(normalise({ ...RAW, time_control: "60" }, "onclepat", "2023/11").cadence, "1 min");
+  assert.equal(normalise({ ...RAW, time_control: "1/86400" }, "onclepat", "2023/11").cadence, "1 jour par coup");
+  assert.equal(normalise({ ...RAW, rules: "chess960" }, "onclepat", "2023/11"), null);
+  assert.throws(() => normalise({ ...RAW, white: {} }, "onclepat", "2023/11"), /changé le format/);
+});
+
+test("cadences : libellés lisibles, ordre de la plus rapide à la plus lente", () => {
+  const labels = ["600", "180+2", "30", "1/259200", "60", "900+10", "180", "bizarre"].map((tc) => cadenceOf(tc));
+  assert.deepEqual(labels.map((c) => c.label), ["10 min", "3 min + 2 s", "30 s", "3 jours par coup", "1 min", "15 min + 10 s", "3 min", "bizarre"]);
+  const games = labels.map((c) => ({ cadence: c.label, cadenceSeconds: c.seconds }));
+  assert.deepEqual(cadencesOf([...games, games[0]]), ["30 s", "1 min", "3 min", "3 min + 2 s", "10 min", "15 min + 10 s", "3 jours par coup", "bizarre"]);
 });
 
 test("filtres de la liste et libellé du mois", () => {
   const games = [
-    { result: "win", minutes: 5 },
-    { result: "loss", minutes: 10 },
-    { result: "loss", minutes: 5 },
+    { result: "win", cadence: "5 min" },
+    { result: "loss", cadence: "10 min" },
+    { result: "loss", cadence: "5 min" },
   ];
-  assert.equal(filterGames(games, { result: "all", minutes: "all" }).length, 3);
-  assert.equal(filterGames(games, { result: "loss", minutes: "all" }).length, 2);
-  assert.equal(filterGames(games, { result: "loss", minutes: "5" }).length, 1);
+  assert.equal(filterGames(games, { result: "all", cadence: "all" }).length, 3);
+  assert.equal(filterGames(games, { result: "loss", cadence: "all" }).length, 2);
+  assert.equal(filterGames(games, { result: "loss", cadence: "5 min" }).length, 1);
   assert.equal(monthLabel("2026/11"), "novembre 2026");
 });

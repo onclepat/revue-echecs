@@ -2,7 +2,7 @@
  * Point d'entrée : état de l'application et liaison entre données, moteur et interface.
  */
 import { Chess } from "../vendor/chess.js/chess.js";
-import { ACCEPT_WITHIN, ANALYSIS_VERSION, BASE_TIMES, ENGINE_URL, KEY_MOMENTS, MONTHS_TO_SCAN, NODES, POOL_SIZE } from "./config.js";
+import { ACCEPT_WITHIN, ANALYSIS_VERSION, ENGINE_URL, KEY_MOMENTS, MONTHS_TO_SCAN, NODES, POOL_SIZE } from "./config.js";
 import { analyseGame, passFen, terminal, whiteWin, winToMove } from "./core/analysis.js";
 import { winOfScore } from "./core/eval.js";
 import { explain } from "./core/explain.js";
@@ -20,10 +20,7 @@ import { $, el, fill } from "./ui/dom.js";
 import { countGames, errorCard, exploreCard, gamesList, guessCard, monthLabel, moveCard, movesCard, progressCard, summaryCard } from "./ui/panel.js";
 
 const { loadAnalysis, preferences, requestPersistence, saveAnalysis } = store;
-const library = createLibrary({
-  api: { fetchArchives, fetchMonth: (user, month) => fetchMonth(user, month, BASE_TIMES) },
-  store,
-});
+const library = createLibrary({ api: { fetchArchives, fetchMonth }, store });
 
 const state = {
   user: "",
@@ -31,7 +28,7 @@ const state = {
   month: null, // mois affiché
   games: [], // parties du mois affiché
   loadingMonth: false,
-  filters: { result: "all", minutes: "all" }, // remis à zéro à chaque ouverture : jamais de liste vide par surprise
+  filters: { result: "all", cadence: "all" }, // remis à zéro à chaque ouverture : jamais de liste vide par surprise
   libraryToken: 0, // identifie l'ouverture d'historique en cours, pour ignorer les réponses périmées
   monthToken: 0, // idem pour le chargement d'un mois
   game: null, // partie ouverte : métadonnées + fens, moves, clocks
@@ -75,7 +72,7 @@ async function openLibrary(rawUser) {
       setStatus("Aucune partie trouvée pour ce pseudo.");
       return;
     }
-    // Le dernier mois joué peut ne contenir aucune partie de 5 ou 10 minutes : on remonte jusqu'à en trouver.
+    // Le dernier mois joué peut ne contenir que des variantes : on remonte jusqu'à trouver une partie classique.
     for (const month of months.slice(0, MONTHS_TO_SCAN)) {
       await selectMonth(month);
       if (request !== state.libraryToken || state.games.length) break;
@@ -98,6 +95,8 @@ async function selectMonth(month) {
     const { games, stale } = await library.games(state.user, month);
     if (request !== state.monthToken) return;
     state.games = games;
+    // Une cadence absente du nouveau mois ne doit pas laisser une liste vide.
+    if (!games.some((game) => game.cadence === state.filters.cadence)) state.filters.cadence = "all";
     if (stale) showBanner(stale + " Affichage des parties déjà enregistrées pour ce mois.");
     setStatus(`${monthLabel(month)} : ${countGames(games.length)} · ${engineName}`);
   } catch (error) {

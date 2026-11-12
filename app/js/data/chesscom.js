@@ -41,14 +41,33 @@ function openingName(eco) {
 }
 
 /**
- * Réduit une partie Chess.com.
- * @returns {object|null} null si la partie est hors périmètre (variante, autre cadence)
+ * Cadence lisible et durée de tri à partir du champ time_control de Chess.com.
+ * « 600 » → 10 min ; « 180+2 » → 3 min + 2 s ; « 1/86400 » → 1 jour par coup.
+ * @returns {{label:string, seconds:number}} seconds sert à ordonner les cadences, de la plus rapide à la plus lente
+ */
+export function cadenceOf(timeControl) {
+  const text = String(timeControl || "");
+  const duration = (seconds) => (seconds % 60 === 0 ? `${seconds / 60} min` : `${seconds} s`);
+  const daily = text.match(/^1\/(\d+)$/);
+  if (daily) {
+    const days = +daily[1] / 86400;
+    return { label: `${days} jour${days > 1 ? "s" : ""} par coup`, seconds: +daily[1] * 40 };
+  }
+  const live = text.match(/^(\d+)(?:\+(\d+))?$/);
+  if (!live) return { label: text || "cadence inconnue", seconds: Number.MAX_SAFE_INTEGER };
+  const base = +live[1];
+  const increment = +(live[2] || 0);
+  return { label: duration(base) + (increment ? ` + ${increment} s` : ""), seconds: base + increment * 40 };
+}
+
+/**
+ * Réduit une partie Chess.com. Toutes les cadences sont conservées.
+ * @returns {object|null} null si la partie est une variante (les règles diffèrent des échecs classiques)
  * @throws si le format des données est inattendu
  */
-export function normalise(raw, user, month, baseTimes) {
+export function normalise(raw, user, month) {
   if (raw.rules !== "chess" || !raw.pgn) return null;
-  const base = String(raw.time_control || "").split("+")[0];
-  if (!baseTimes.includes(base)) return null;
+  const cadence = cadenceOf(raw.time_control);
   const white = raw.white;
   const black = raw.black;
   if (!white?.username || !black?.username || !raw.url || !raw.end_time) throw new Error(FORMAT_CHANGED);
@@ -62,7 +81,8 @@ export function normalise(raw, user, month, baseTimes) {
     month,
     endTime: raw.end_time,
     timeControl: raw.time_control,
-    minutes: +base / 60,
+    cadence: cadence.label,
+    cadenceSeconds: cadence.seconds,
     me,
     myRating: mine.rating,
     opponent: opponent.username,
@@ -85,9 +105,9 @@ export async function fetchArchives(user) {
     .reverse();
 }
 
-/** Parties d'un mois dans les cadences demandées. */
-export async function fetchMonth(user, month, baseTimes) {
+/** Parties d'un mois, toutes cadences confondues. */
+export async function fetchMonth(user, month) {
   const data = await getJson(`${API}${encodeURIComponent(user)}/games/${month}`);
   if (!Array.isArray(data.games)) throw new Error(FORMAT_CHANGED);
-  return data.games.map((raw) => normalise(raw, user, month, baseTimes)).filter(Boolean);
+  return data.games.map((raw) => normalise(raw, user, month)).filter(Boolean);
 }

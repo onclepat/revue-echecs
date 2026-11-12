@@ -48,7 +48,7 @@ export function buildPrompt({ game, analysis, ply, facts }) {
   const reply = after.over ? "(partie terminée)" : lineText(game.fens[ply + 1], after.lines[0].pv, 10);
   return `Tu es un entraîneur d'échecs. Explique-moi un coup de ma partie, en français.
 
-Contexte : je jouais les ${game.me === "w" ? "Blancs" : "Noirs"}, je suis classé ${game.myRating} Elo (adversaire ${game.opponentRating}), cadence ${game.minutes} minutes. Adapte ton explication à ce niveau : phrases simples, idées concrètes.
+Contexte : je jouais les ${game.me === "w" ? "Blancs" : "Noirs"}, je suis classé ${game.myRating} Elo (adversaire ${game.opponentRating}), cadence ${game.cadence}. Adapte ton explication à ce niveau : phrases simples, idées concrètes.
 
 Règle importante : appuie-toi uniquement sur les données du moteur ci-dessous. N'invente aucune variante. Si tu proposes un coup, vérifie qu'il est légal dans la position FEN donnée. Si tu n'es pas sûr, dis-le.
 

@@ -3,7 +3,7 @@
  * Toute erreur de stockage remonte à l'appelant : rien n'est avalé en silence.
  */
 const DB_NAME = "revue";
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 
 let opening = null;
 
@@ -24,6 +24,11 @@ function open() {
         games.createIndex("userMonth", ["user", "month"]);
         db.createObjectStore("months", { keyPath: ["user", "month"] });
         db.createObjectStore("archives", { keyPath: "user" });
+      }
+      if (event.oldVersion < 3) {
+        // Version 3 : toutes les cadences. Les mois déjà chargés (5 et 10 minutes seulement) sont à recharger.
+        request.transaction.objectStore("games").clear();
+        request.transaction.objectStore("months").clear();
       }
     };
     request.onsuccess = () => resolve(request.result);

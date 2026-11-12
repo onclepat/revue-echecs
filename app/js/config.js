@@ -12,9 +12,6 @@ export const ANALYSIS_VERSION = 1;
 /** Nombre de moteurs en parallèle : un par cœur disponible, moins un pour l'interface, quatre au plus. */
 export const POOL_SIZE = Math.max(1, Math.min(4, (globalThis.navigator?.hardwareConcurrency || 2) - 1));
 
-/** Cadences importées (temps de base en secondes) : 5 et 10 minutes. */
-export const BASE_TIMES = ["300", "600"];
-
 /** À l'ouverture, nombre de mois récents parcourus pour trouver le premier qui contient des parties. */
 export const MONTHS_TO_SCAN = 6;
 
