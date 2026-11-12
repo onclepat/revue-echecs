@@ -2,7 +2,7 @@
  * Point d'entrée : état de l'application et liaison entre données, moteur et interface.
  */
 import { Chess } from "../vendor/chess.js/chess.js";
-import { ACCEPT_WITHIN, ANALYSIS_VERSION, ENGINE_URL, KEY_MOMENTS, MONTHS_TO_SCAN, NODES, POOL_SIZE } from "./config.js";
+import { ACCEPT_WITHIN, ANALYSIS_VERSION, ENGINE, ENGINE_START_TIMEOUT_MS, KEY_MOMENTS, MONTHS_TO_SCAN, NODES, POOL_SIZE } from "./config.js";
 import { analyseGame, passFen, terminal, whiteWin, winToMove } from "./core/analysis.js";
 import { winOfScore } from "./core/eval.js";
 import { explain } from "./core/explain.js";
@@ -42,7 +42,7 @@ const state = {
   token: 0, // identifie l'analyse en cours pour ignorer les résultats périmés
 };
 
-const pool = new EnginePool({ size: POOL_SIZE, createTransport: () => workerTransport(ENGINE_URL) });
+const pool = new EnginePool({ size: POOL_SIZE, createTransport: () => workerTransport(ENGINE.url) });
 const board = new Board($("board"), onBoardMove);
 let engineName = "";
 
@@ -415,7 +415,7 @@ function panelContent(guessing) {
 
   if (analysis && !guessing) {
     const moments = keyMoments(game, analysis, KEY_MOMENTS);
-    parts.push(...summaryCard({ figures: summary(game, analysis, labels), moments, game, onMoment: (record) => startGuess(record.ply) }));
+    parts.push(...summaryCard({ figures: summary(game, analysis, labels), lightEngine: ENGINE.light, moments, game, onMoment: (record) => startGuess(record.ply) }));
   }
   if (game.moves.length && !guessing) parts.push(movesCard({ game, analysis, labels, ply: state.ply, onGo: go }));
   return parts;
@@ -451,8 +451,8 @@ window.addEventListener("resize", scheduleRender);
 initTheme($("toggle-theme"));
 initSound($("toggle-sound"));
 renderGames();
-setStatus("Démarrage du moteur…");
-const startTimeout = new Promise((_, reject) => setTimeout(() => reject(new Error("délai dépassé")), 30_000));
+setStatus(ENGINE.light ? "Démarrage du moteur…" : "Démarrage du moteur (99 Mo à télécharger la première fois)…");
+const startTimeout = new Promise((_, reject) => setTimeout(() => reject(new Error("délai dépassé")), ENGINE_START_TIMEOUT_MS));
 Promise.race([pool.engineName(), startTimeout]).then(
   (name) => {
     engineName = name;

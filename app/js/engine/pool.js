@@ -12,9 +12,11 @@ export class EnginePool {
    * @param {number} [options.timeoutMs] durée maximale d'une analyse
    */
   constructor({ size, createTransport, timeoutMs = 90_000 }) {
+    this.size = size;
     this.createTransport = createTransport;
     this.timeoutMs = timeoutMs;
-    this.idle = Array.from({ length: size }, () => this.#spawn());
+    this.created = 0;
+    this.idle = [];
     this.waiting = [];
   }
 
@@ -33,8 +35,16 @@ export class EnginePool {
     }
   }
 
+  /**
+   * Les moteurs sont créés à la demande : le premier télécharge le fichier du moteur,
+   * les suivants le retrouvent dans le cache du navigateur.
+   */
   #acquire() {
     if (this.idle.length) return Promise.resolve(this.idle.pop());
+    if (this.created < this.size) {
+      this.created++;
+      return Promise.resolve(this.#spawn());
+    }
     return new Promise((resolve) => this.waiting.push(resolve));
   }
 

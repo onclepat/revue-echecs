@@ -142,6 +142,7 @@ button { cursor: pointer; }
 .moves button.current { background: var(--accent); color: #fff; }
 .dot { width: 7px; height: 7px; border-radius: 50%; flex: none; }
 .dot.brillant { background: var(--brillant); } .dot.unique { background: var(--unique); }
+.summary-note { margin: 10px 0 0; font-size: 12px; color: var(--muted); }
 .summary-good { margin: 10px 0 0; font-size: 13px; font-weight: 600; color: var(--unique); }
 .dot.imprecision { background: var(--imprecision); } .dot.erreur { background: var(--erreur); } .dot.gaffe { background: var(--gaffe); }
 

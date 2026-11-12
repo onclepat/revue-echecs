@@ -100,7 +100,7 @@ export function errorCard(message, onRetry) {
 }
 
 /** Résumé de la partie : chiffres et moments clés (sans indice : la solution n'est pas dévoilée avant l'exercice). */
-export function summaryCard({ figures, moments, game, onMoment }) {
+export function summaryCard({ figures, moments, game, lightEngine, onMoment }) {
   const figure = (value, label) => el("div", { class: "figure" }, el("b", { class: "num", text: String(value) }), el("span", { text: label }));
   const plural = (count, one, many) => `${count} ${count > 1 ? many : one}`;
   const good = [
@@ -116,6 +116,7 @@ export function summaryCard({ figures, moments, game, onMoment }) {
       figure(figures.accuracy == null ? "—" : figures.accuracy.toFixed(0), "précision (formule Lichess)"),
     ),
     good.length > 0 && el("p", { class: "summary-good", text: good.join(" · ") }),
+    lightEngine && el("p", { class: "summary-note", text: "Analyse rapide (moteur léger). L'analyse complète se fait sur ordinateur." }),
   );
   const list = moments.length
     ? el("div", { class: "card" }, moments.map((record) =>

@@ -5,9 +5,9 @@ import { createRequire } from "node:module";
 
 const require = createRequire(import.meta.url);
 
-/** Transport Node pour le moteur Stockfish web fourni dans vendor/. */
-export async function nodeTransport() {
-  let engine = require("../vendor/stockfish/stockfish-19-lite-single.js")();
+/** Transport Node pour un moteur Stockfish web fourni dans vendor/stockfish/. */
+export async function nodeTransport(file) {
+  let engine = require("../vendor/stockfish/" + file)();
   if (typeof engine.then === "function") engine = await engine;
   const transport = { onLine: null, send: (text) => engine.processCommand(text), close: () => engine.terminate?.() };
   engine.listener = (line) => transport.onLine?.(String(line).trim());

@@ -1,6 +1,5 @@
-# Prototype V2 : moteur Windows (100 Mo) et cache d'analyses, non versionnés
-mvp/engine/
-mvp/data/
+# Prototype V2, conservé sur le disque comme référence, hors du dépôt
+mvp/
 
 # Réglages locaux de l'assistant
 .claude/
