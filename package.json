@@ -1,0 +1,11 @@
+{
+  "name": "revue",
+  "version": "1.0.0",
+  "description": "Revue de parties d'échecs dans le navigateur",
+  "private": true,
+  "license": "GPL-3.0-or-later",
+  "scripts": {
+    "start": "node tools/serve.mjs",
+    "test": "node --test app/tests/"
+  }
+}

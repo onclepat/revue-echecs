@@ -1,0 +1,8 @@
+# Prototype V2 : moteur Windows (100 Mo) et cache d'analyses, non versionnés
+mvp/engine/
+mvp/data/
+
+# Réglages locaux de l'assistant
+.claude/
+
+node_modules/
