@@ -109,11 +109,11 @@ export function summaryCard({ figures, moments, game, onMoment }) {
   ].filter(Boolean);
   const head = el("div", { class: "card summary" },
     el("div", { class: "summary-figures" },
-      figure(figures.gaffes, "gaffes"),
-      figure(figures.erreurs, "erreurs"),
-      figure(figures.imprecisions, "imprécisions"),
-      figure(figures.manquees, "occasions manquées"),
-      figure(figures.accuracy == null ? "—" : figures.accuracy.toFixed(0), "précision (indicative)"),
+      figure(figures.gaffes, figures.gaffes > 1 ? "gaffes" : "gaffe"),
+      figure(figures.erreurs, figures.erreurs > 1 ? "erreurs" : "erreur"),
+      figure(figures.imprecisions, figures.imprecisions > 1 ? "imprécisions" : "imprécision"),
+      figure(figures.manquees, figures.manquees > 1 ? "occasions manquées" : "occasion manquée"),
+      figure(figures.accuracy == null ? "—" : figures.accuracy.toFixed(0), "précision (formule Lichess)"),
     ),
     good.length > 0 && el("p", { class: "summary-good", text: good.join(" · ") }),
   );

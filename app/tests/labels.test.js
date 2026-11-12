@@ -69,7 +69,7 @@ test("occasion manquée : l'adversaire s'était trompé, et le joueur rend au mo
   const moves = ["e4", "e5", "Nf3"].map((san) => toRecord(chess.move(san)));
   const game = { me: "b", fens: [], moves };
   const analysis = {
-    positions: [{ lines: [] }, { lines: [] }, { lines: [] }],
+    positions: [0, 1, 2, 3].map(() => ({ lines: [line(["a2a3"], 0)] })),
     moves: [
       { ply: 0, loss: 25, cls: "gaffe" },
       { ply: 1, loss: 30, cls: "gaffe" },

@@ -1,8 +1,8 @@
 /**
- * Synthèse d'une partie analysée : moments clés, compteurs, précision indicative, prompt pour une IA.
+ * Synthèse d'une partie analysée : moments clés, compteurs, précision, prompt pour une IA.
  * Module pur.
  */
-import { accuracy } from "./eval.js";
+import { gameAccuracy } from "./accuracy.js";
 import { LABEL_TEXT, labelOf } from "./labels.js";
 import { lineText, moveNumber } from "./pgn.js";
 
@@ -24,14 +24,29 @@ export function keyMoments(game, analysis, count) {
 }
 
 /**
- * Compteurs et précision indicative du joueur.
+ * Évaluation de chaque position du point de vue des Blancs, en centipions (un mat vaut ±Infinity).
+ * C'est l'entrée de la formule de précision de Lichess.
+ */
+export function whiteCps(positions) {
+  return positions.map((position, index) => {
+    const sign = index % 2 === 0 ? 1 : -1; // les Blancs sont au trait aux positions paires
+    if (position.over === "mate") return -sign * Infinity; // le camp au trait est mat
+    if (position.over === "draw") return 0;
+    const score = position.lines[0].score;
+    if (score.t === "mate") return sign * (score.v > 0 ? Infinity : -Infinity);
+    return sign * score.v;
+  });
+}
+
+/**
+ * Compteurs du joueur et précision (formule de Lichess).
  * @param {object[]} labels étiquettes de tous les coups (labels.js)
  */
 export function summary(game, analysis, labels) {
   const mine = myMoves(game, analysis);
   const count = (label) => mine.filter((record) => labels[record.ply].label === label).length;
   return {
-    accuracy: accuracy(mine.map((record) => record.loss)),
+    accuracy: gameAccuracy(whiteCps(analysis.positions))[game.me === "w" ? "white" : "black"],
     imprecisions: count("imprecision"),
     erreurs: count("erreur"),
     gaffes: count("gaffe"),

@@ -28,7 +28,8 @@ app/                  le site (seul dossier à publier)
     main.js           état de l'application, liaison entre les modules
     config.js         réglages : budget du moteur, cadences importées
     core/             logique pure, testée, sans accès au navigateur
-      eval.js         chances de gain, classes de coups, précision
+      eval.js         chances de gain, classes de coups
+      accuracy.js     précision : formule de Lichess, à l'identique
       pgn.js          lecture d'une partie Chess.com (coups, pendules)
       uci.js          dialogue avec le moteur
       analysis.js     analyse d'une partie, une fiche par coup

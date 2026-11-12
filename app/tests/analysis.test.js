@@ -63,6 +63,7 @@ test("fin de partie et position « passe »", () => {
 test("moments clés : erreurs du joueur seulement, hors partie décidée, dans l'ordre", () => {
   const record = (ply, loss, cls, decided = false) => ({ ply, loss, cls, decided });
   const analysis = {
+    positions: game.fens.map(() => ({ lines: [line(["a2a3"], 0)] })),
     moves: [record(0, 25, "gaffe"), record(1, 40, "gaffe"), record(2, 12, "erreur"), record(3, 0, "ok"), record(4, 30, "gaffe", true)],
   };
   assert.deepEqual(keyMoments(game, analysis, 3).map((r) => r.ply), [0, 2]);

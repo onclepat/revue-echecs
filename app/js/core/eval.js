@@ -34,19 +34,6 @@ export function classify(loss) {
   return "ok";
 }
 
-/** Précision d'un coup (0-100) à partir de sa perte (formule publique de Lichess). */
-export function moveAccuracy(loss) {
-  if (loss <= 0) return 100;
-  const raw = 103.1668100711649 * Math.exp(-0.04354415386753951 * loss) - 3.166924740191411;
-  return Math.max(0, Math.min(100, raw + 1));
-}
-
-/** Précision indicative d'une série de coups : moyenne simple des précisions par coup. */
-export function accuracy(losses) {
-  if (!losses.length) return null;
-  return losses.reduce((sum, loss) => sum + moveAccuracy(loss), 0) / losses.length;
-}
-
 /** Texte court d'un score, du point de vue des Blancs. */
 export function scoreText(score, whiteToMove) {
   const sign = whiteToMove ? 1 : -1;
