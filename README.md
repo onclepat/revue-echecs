@@ -35,7 +35,7 @@ app/                  le site (seul dossier à publier)
       explain.js      explications : uniquement des faits vérifiés
       review.js       moments clés, résumé, prompt pour une IA
     engine/           groupe de moteurs dans des Web Workers
-    data/             import Chess.com, stockage local (IndexedDB)
+    data/             Chess.com, historique chargé mois par mois, stockage local (IndexedDB)
     ui/               échiquier, panneau, graphique, thème, sons
   tests/              tests automatiques (node --test)
   vendor/             dépendances figées, copiées dans le projet

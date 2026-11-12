@@ -2,25 +2,38 @@
  * Point d'entrée : état de l'application et liaison entre données, moteur et interface.
  */
 import { Chess } from "../vendor/chess.js/chess.js";
-import { ACCEPT_WITHIN, ANALYSIS_VERSION, BASE_TIMES, ENGINE_URL, GAMES_WANTED, KEY_MOMENTS, NODES, POOL_SIZE } from "./config.js";
+import { ACCEPT_WITHIN, ANALYSIS_VERSION, BASE_TIMES, ENGINE_URL, KEY_MOMENTS, MONTHS_TO_SCAN, NODES, POOL_SIZE } from "./config.js";
 import { analyseGame, passFen, terminal, whiteWin, winToMove } from "./core/analysis.js";
 import { winOfScore } from "./core/eval.js";
 import { explain } from "./core/explain.js";
 import { parseGame, toRecord } from "./core/pgn.js";
 import { buildPrompt, keyMoments, summary } from "./core/review.js";
-import { fetchRecentGames } from "./data/chesscom.js";
-import { loadAnalysis, loadGames, preferences, requestPersistence, saveAnalysis, saveGames } from "./data/store.js";
+import { fetchArchives, fetchMonth } from "./data/chesscom.js";
+import { createLibrary } from "./data/library.js";
+import * as store from "./data/store.js";
 import { EnginePool } from "./engine/pool.js";
 import { workerTransport } from "./engine/worker-transport.js";
 import { Board } from "./ui/board.js";
 import { chartIndex, drawChart } from "./ui/chart.js";
 import { initSound, initTheme, playMove } from "./ui/comfort.js";
 import { $, el, fill } from "./ui/dom.js";
-import { errorCard, exploreCard, gamesList, guessCard, moveCard, movesCard, progressCard, summaryCard } from "./ui/panel.js";
+import { countGames, errorCard, exploreCard, gamesList, guessCard, monthLabel, moveCard, movesCard, progressCard, summaryCard } from "./ui/panel.js";
+
+const { loadAnalysis, preferences, requestPersistence, saveAnalysis } = store;
+const library = createLibrary({
+  api: { fetchArchives, fetchMonth: (user, month) => fetchMonth(user, month, BASE_TIMES) },
+  store,
+});
 
 const state = {
   user: "",
-  games: [],
+  months: [], // mois disponibles, « AAAA/MM », du plus récent au plus ancien
+  month: null, // mois affiché
+  games: [], // parties du mois affiché
+  loadingMonth: false,
+  filters: { result: "all", minutes: "all" }, // remis à zéro à chaque ouverture : jamais de liste vide par surprise
+  libraryToken: 0, // identifie l'ouverture d'historique en cours, pour ignorer les réponses périmées
+  monthToken: 0, // idem pour le chargement d'un mois
   game: null, // partie ouverte : métadonnées + fens, moves, clocks
   analysis: null, // { positions, moves, threats }
   progress: null, // { done, total } pendant l'analyse
@@ -41,28 +54,64 @@ const myWin = (index) => {
   return state.game.me === "w" ? white : 100 - white;
 };
 
-/* ---------- Import ---------- */
+/* ---------- Bibliothèque de parties ---------- */
 
-async function importGames(rawUser) {
+/** Ouvre l'historique d'un joueur : liste des mois, puis le mois le plus récent qui contient des parties. */
+async function openLibrary(rawUser) {
   const user = rawUser.trim().toLowerCase();
   if (!user) return;
-  state.user = user;
+  const request = ++state.libraryToken;
+  Object.assign(state, { user, months: [], month: null, games: [], loadingMonth: false });
   preferences.set("user", user);
   $("banner").hidden = true;
+  setStatus("Recherche de vos parties…");
   try {
-    state.games = await loadGames(user);
-    renderGames();
-    const fetched = await fetchRecentGames(user, { wanted: GAMES_WANTED, baseTimes: BASE_TIMES, onProgress: setStatus });
-    await saveGames(fetched);
-    state.games = (await loadGames(user)).slice(0, GAMES_WANTED);
-    renderGames();
-    setStatus(state.games.length ? `${state.games.length} parties · ${engineName}` : "Aucune partie de 5 ou 10 minutes trouvée.");
-    if (state.games.length && !state.game) openGame(state.games[0]);
+    const { months, stale } = await library.months(user);
+    if (request !== state.libraryToken) return;
+    state.months = months;
+    if (stale) showBanner(stale + " Les parties déjà enregistrées restent consultables.");
+    if (!months.length) {
+      renderGames();
+      setStatus("Aucune partie trouvée pour ce pseudo.");
+      return;
+    }
+    // Le dernier mois joué peut ne contenir aucune partie de 5 ou 10 minutes : on remonte jusqu'à en trouver.
+    for (const month of months.slice(0, MONTHS_TO_SCAN)) {
+      await selectMonth(month);
+      if (request !== state.libraryToken || state.games.length) break;
+    }
+    if (request === state.libraryToken && state.games.length && !state.game) openGame(state.games[0]);
   } catch (error) {
+    if (request !== state.libraryToken) return;
     showBanner(error.message);
-    setStatus(state.games.length ? "Import échoué : parties déjà enregistrées affichées." : "Import échoué.");
-    if (state.games.length && !state.game) openGame(state.games[0]);
+    setStatus("Import échoué.");
+    renderGames();
   }
+}
+
+/** Affiche un mois : lu en local s'il est terminé et déjà chargé, sinon demandé à Chess.com. */
+async function selectMonth(month) {
+  const request = ++state.monthToken;
+  Object.assign(state, { month, games: [], loadingMonth: true });
+  renderGames();
+  try {
+    const { games, stale } = await library.games(state.user, month);
+    if (request !== state.monthToken) return;
+    state.games = games;
+    if (stale) showBanner(stale + " Affichage des parties déjà enregistrées pour ce mois.");
+    setStatus(`${monthLabel(month)} : ${countGames(games.length)} · ${engineName}`);
+  } catch (error) {
+    if (request !== state.monthToken) return;
+    showBanner(error.message);
+    setStatus("Chargement du mois échoué.");
+  }
+  state.loadingMonth = false;
+  renderGames();
+}
+
+function setFilter(change) {
+  Object.assign(state.filters, change);
+  renderGames();
 }
 
 function showBanner(message) {
@@ -266,7 +315,20 @@ function scheduleRender() {
 }
 
 function renderGames() {
-  fill($("games"), gamesList(state.games, state.game?.url, openGame));
+  fill(
+    $("games"),
+    gamesList({
+      months: state.months,
+      month: state.month,
+      games: state.games,
+      filters: state.filters,
+      loading: state.loadingMonth,
+      activeUrl: state.game?.url,
+      onMonth: selectMonth,
+      onFilter: setFilter,
+      onOpen: openGame,
+    }),
+  );
 }
 
 function clockAt(color) {
@@ -355,8 +417,10 @@ function panelContent(guessing) {
 
 $("import-form").addEventListener("submit", (event) => {
   event.preventDefault();
-  state.game = null;
-  importGames($("user").value);
+  state.token++;
+  Object.assign(state, { game: null, analysis: null, progress: null, error: null });
+  render();
+  openLibrary($("user").value);
 });
 $("toggle-games").addEventListener("click", () => $("games").classList.toggle("open"));
 document.querySelector(".nav").addEventListener("click", (event) => {
@@ -389,7 +453,7 @@ Promise.race([pool.engineName(), startTimeout]).then(
     const saved = preferences.get("user", "");
     if (saved) {
       $("user").value = saved;
-      importGames(saved);
+      openLibrary(saved);
     }
   },
   () => showBanner("Le moteur d'échecs n'a pas pu démarrer dans ce navigateur."),

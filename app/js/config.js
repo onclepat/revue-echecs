@@ -15,8 +15,8 @@ export const POOL_SIZE = Math.max(1, Math.min(4, (globalThis.navigator?.hardware
 /** Cadences importées (temps de base en secondes) : 5 et 10 minutes. */
 export const BASE_TIMES = ["300", "600"];
 
-/** Nombre de parties récentes importées. */
-export const GAMES_WANTED = 30;
+/** À l'ouverture, nombre de mois récents parcourus pour trouver le premier qui contient des parties. */
+export const MONTHS_TO_SCAN = 6;
 
 /** Nombre de moments clés montrés par partie. */
 export const KEY_MOMENTS = 3;

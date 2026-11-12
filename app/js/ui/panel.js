@@ -7,10 +7,54 @@ import { el, percent } from "./dom.js";
 
 const RESULT = { win: "Victoire", loss: "Défaite", draw: "Nulle" };
 
-/** Liste des parties importées. */
-export function gamesList(games, activeUrl, onOpen) {
-  if (!games.length) return [el("div", { class: "card empty", text: "Entrez votre pseudo Chess.com pour importer vos parties de 5 et 10 minutes." })];
-  const rows = games.map((game) => {
+const RESULT_FILTERS = [["all", "Toutes"], ["win", "Gagnées"], ["loss", "Perdues"]];
+const TIME_FILTERS = [["all", "5 et 10 min"], ["5", "5 min"], ["10", "10 min"]];
+
+/** « 2026/11 » → « novembre 2026 ». */
+export function monthLabel(month) {
+  const [year, number] = month.split("/").map(Number);
+  return new Date(Date.UTC(year, number - 1, 15)).toLocaleDateString("fr-FR", { month: "long", year: "numeric" });
+}
+
+/** « 1 partie », « 12 parties ». */
+export const countGames = (count) => `${count} partie${count > 1 ? "s" : ""}`;
+
+/** Parties retenues par les filtres de résultat et de cadence. */
+export function filterGames(games, filters) {
+  return games.filter(
+    (game) => (filters.result === "all" || game.result === filters.result) && (filters.minutes === "all" || String(game.minutes) === filters.minutes),
+  );
+}
+
+function segmented(options, current, onPick, label) {
+  return el("div", { class: "segmented", role: "group", "aria-label": label },
+    options.map(([value, text]) =>
+      el("button", { type: "button", class: value === current ? "on" : "", "aria-pressed": String(value === current), text, onClick: () => onPick(value) })),
+  );
+}
+
+/**
+ * Colonne des parties : choix du mois, filtres, liste.
+ * @param {object} view { months, month, games, filters, loading, activeUrl, onMonth, onFilter, onOpen }
+ */
+export function gamesList({ months, month, games, filters, loading, activeUrl, onMonth, onFilter, onOpen }) {
+  if (!months.length) return [el("div", { class: "card empty", text: "Entrez votre pseudo Chess.com pour retrouver toutes vos parties de 5 et 10 minutes." })];
+  const select = el("select", { class: "month-select", "aria-label": "Mois", onChange: (event) => onMonth(event.target.value) },
+    months.map((value) => el("option", { value, selected: value === month, text: monthLabel(value) })),
+  );
+  const controls = el("div", { class: "games-controls" },
+    select,
+    segmented(RESULT_FILTERS, filters.result, (value) => onFilter({ result: value }), "Résultat"),
+    segmented(TIME_FILTERS, filters.minutes, (value) => onFilter({ minutes: value }), "Cadence"),
+  );
+  if (loading) return [controls, el("div", { class: "card empty", text: `Chargement de ${monthLabel(month)}…` })];
+  const shown = filterGames(games, filters);
+  const count = el("h2", { class: "section-title", text: shown.length === games.length ? countGames(games.length) : `${countGames(shown.length)} sur ${games.length}` });
+  if (!shown.length) {
+    const text = games.length ? "Aucune partie ne correspond à ces filtres." : "Aucune partie de 5 ou 10 minutes ce mois-là.";
+    return [controls, count, el("div", { class: "card empty", text })];
+  }
+  const rows = shown.map((game) => {
     const date = new Date(game.endTime * 1000).toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
     return el(
       "button",
@@ -27,7 +71,7 @@ export function gamesList(games, activeUrl, onOpen) {
       game.opening && el("div", { class: "game-line", text: game.opening }),
     );
   });
-  return [el("h2", { class: "section-title", text: `${games.length} dernières parties` }), el("div", { class: "card" }, rows)];
+  return [controls, count, el("div", { class: "card" }, rows)];
 }
 
 /** Carte affichée pendant l'analyse. */

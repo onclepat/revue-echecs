@@ -1,19 +1,30 @@
 /**
- * Stockage local : parties et analyses dans IndexedDB (base du navigateur), préférences dans localStorage.
+ * Stockage local : parties, mois chargés et analyses dans IndexedDB (base du navigateur), préférences dans localStorage.
  * Toute erreur de stockage remonte à l'appelant : rien n'est avalé en silence.
  */
 const DB_NAME = "revue";
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 let opening = null;
 
 function open() {
   opening ??= new Promise((resolve, reject) => {
     const request = indexedDB.open(DB_NAME, DB_VERSION);
-    request.onupgradeneeded = () => {
+    request.onupgradeneeded = (event) => {
       const db = request.result;
-      db.createObjectStore("games", { keyPath: "url" }).createIndex("user", "user");
-      db.createObjectStore("analyses", { keyPath: "key" });
+      if (event.oldVersion < 1) {
+        db.createObjectStore("games", { keyPath: "url" });
+        db.createObjectStore("analyses", { keyPath: "key" });
+      }
+      if (event.oldVersion < 2) {
+        // Version 2 : historique complet, rangé par mois.
+        const games = request.transaction.objectStore("games");
+        if (games.indexNames.contains("user")) games.deleteIndex("user");
+        games.clear();
+        games.createIndex("userMonth", ["user", "month"]);
+        db.createObjectStore("months", { keyPath: ["user", "month"] });
+        db.createObjectStore("archives", { keyPath: "user" });
+      }
     };
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(new Error("Stockage local indisponible : " + request.error?.message));
@@ -37,10 +48,27 @@ export function saveGames(games) {
   });
 }
 
-/** Parties d'un joueur, de la plus récente à la plus ancienne. */
-export async function loadGames(user) {
-  const games = await run("games", "readonly", (store) => store.index("user").getAll(user));
+/** Parties d'un joueur pour un mois « AAAA/MM », de la plus récente à la plus ancienne. */
+export async function loadGames(user, month) {
+  const games = await run("games", "readonly", (store) => store.index("userMonth").getAll([user, month]));
   return games.sort((a, b) => b.endTime - a.endTime);
+}
+
+/** Enregistre qu'un mois a été chargé. `complete` : le mois est terminé, il ne sera plus redemandé. */
+export function saveMonth(record) {
+  return run("months", "readwrite", (store) => store.put(record));
+}
+
+export function loadMonth(user, month) {
+  return run("months", "readonly", (store) => store.get([user, month]));
+}
+
+export function saveArchives(user, months) {
+  return run("archives", "readwrite", (store) => store.put({ user, months }));
+}
+
+export async function loadArchives(user) {
+  return (await run("archives", "readonly", (store) => store.get(user)))?.months ?? null;
 }
 
 export function saveAnalysis(key, analysis) {

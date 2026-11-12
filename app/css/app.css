@@ -56,6 +56,12 @@ button { cursor: pointer; }
 .empty { padding: 18px; color: var(--muted); text-align: center; }
 
 /* ---------- Parties ---------- */
+.games-controls { display: grid; gap: 8px; margin-bottom: 14px; }
+.month-select { width: 100%; min-height: 40px; padding: 0 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--text); font: inherit; font-weight: 600; text-transform: capitalize; }
+.segmented { display: flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--surface); }
+.segmented button { flex: 1; min-height: 34px; padding: 0 6px; border: 0; border-left: 1px solid var(--line); background: none; font-size: 12px; white-space: nowrap; }
+.segmented button:first-child { border-left: 0; }
+.segmented button.on { background: var(--accent-soft); font-weight: 650; }
 .game { display: grid; gap: 2px; width: 100%; text-align: left; padding: 11px 14px; border: 0; border-bottom: 1px solid var(--line); background: none; }
 .game:last-child { border-bottom: 0; }
 .game:hover { background: var(--bg); }
