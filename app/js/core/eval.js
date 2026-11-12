@@ -12,13 +12,6 @@ export const VERIFY_FROM = 4;
 /** En dessous / au-dessus de ces chances de gain, la partie est considérée comme décidée. */
 export const DECIDED = Object.freeze({ lost: 10, won: 90 });
 
-export const CLASS_LABEL = Object.freeze({
-  ok: "Correct",
-  imprecision: "Imprécision",
-  erreur: "Erreur",
-  gaffe: "Gaffe",
-});
-
 /** Chances de gain (0-100) à partir d'un score en centipions (formule publique de Lichess). */
 export function winFromCp(cp) {
   return 50 + 50 * (2 / (1 + Math.exp(-0.00368208 * cp)) - 1);

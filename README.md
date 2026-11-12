@@ -32,6 +32,7 @@ app/                  le site (seul dossier à publier)
       pgn.js          lecture d'une partie Chess.com (coups, pendules)
       uci.js          dialogue avec le moteur
       analysis.js     analyse d'une partie, une fiche par coup
+      labels.js       étiquettes : brillant, coup unique, occasion manquée…
       explain.js      explications : uniquement des faits vérifiés
       review.js       moments clés, résumé, prompt pour une IA
     engine/           groupe de moteurs dans des Web Workers

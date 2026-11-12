@@ -6,6 +6,7 @@ import { ACCEPT_WITHIN, ANALYSIS_VERSION, ENGINE_URL, KEY_MOMENTS, MONTHS_TO_SCA
 import { analyseGame, passFen, terminal, whiteWin, winToMove } from "./core/analysis.js";
 import { winOfScore } from "./core/eval.js";
 import { explain } from "./core/explain.js";
+import { labelGame } from "./core/labels.js";
 import { parseGame, toRecord } from "./core/pgn.js";
 import { buildPrompt, keyMoments, summary } from "./core/review.js";
 import { fetchArchives, fetchMonth } from "./data/chesscom.js";
@@ -385,8 +386,16 @@ function render() {
   current?.scrollIntoView({ block: "nearest" });
 }
 
+/** Étiquettes de la partie ouverte, calculées une seule fois par analyse. */
+const labelCache = new WeakMap();
+function labelsFor(game, analysis) {
+  if (!labelCache.has(analysis)) labelCache.set(analysis, labelGame(game, analysis));
+  return labelCache.get(analysis);
+}
+
 function panelContent(guessing) {
   const { game, analysis, guess, explore } = state;
+  const labels = analysis ? labelsFor(game, analysis) : null;
   const parts = [];
   if (state.error) parts.push(errorCard(state.error, game.moves.length ? () => analyse(state.token) : null));
   if (state.progress && !analysis) parts.push(progressCard(state.progress.done, state.progress.total));
@@ -399,16 +408,16 @@ function panelContent(guessing) {
     parts.push(
       el("section", {},
         el("h2", { class: "section-title", text: "Coup sélectionné" }),
-        moveCard({ game, analysis, ply: state.ply, explanation: needsExplanation ? explanationFor(index) : null, onReplay: () => startGuess(index), onCopy: () => copyPrompt(index) }),
+        moveCard({ game, analysis, ply: state.ply, label: labels?.[index], explanation: needsExplanation ? explanationFor(index) : null, onReplay: () => startGuess(index), onCopy: () => copyPrompt(index) }),
       ),
     );
   }
 
   if (analysis && !guessing) {
     const moments = keyMoments(game, analysis, KEY_MOMENTS);
-    parts.push(...summaryCard({ figures: summary(game, analysis), moments, game, onMoment: (record) => startGuess(record.ply) }));
+    parts.push(...summaryCard({ figures: summary(game, analysis, labels), moments, game, onMoment: (record) => startGuess(record.ply) }));
   }
-  if (game.moves.length && !guessing) parts.push(movesCard({ game, analysis, ply: state.ply, onGo: go }));
+  if (game.moves.length && !guessing) parts.push(movesCard({ game, analysis, labels, ply: state.ply, onGo: go }));
   return parts;
 }
 

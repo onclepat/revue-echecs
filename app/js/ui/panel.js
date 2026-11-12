@@ -1,7 +1,7 @@
 /**
  * Panneau d'analyse et liste des parties : fonctions d'affichage, sans état propre.
  */
-import { CLASS_LABEL } from "../core/eval.js";
+import { LABEL_TEXT } from "../core/labels.js";
 import { lineText, moveNumber } from "../core/pgn.js";
 import { el, percent } from "./dom.js";
 
@@ -102,18 +102,25 @@ export function errorCard(message, onRetry) {
 /** Résumé de la partie : chiffres et moments clés (sans indice : la solution n'est pas dévoilée avant l'exercice). */
 export function summaryCard({ figures, moments, game, onMoment }) {
   const figure = (value, label) => el("div", { class: "figure" }, el("b", { class: "num", text: String(value) }), el("span", { text: label }));
+  const plural = (count, one, many) => `${count} ${count > 1 ? many : one}`;
+  const good = [
+    figures.brillants && plural(figures.brillants, "coup brillant", "coups brillants"),
+    figures.uniques && plural(figures.uniques, "coup unique trouvé", "coups uniques trouvés"),
+  ].filter(Boolean);
   const head = el("div", { class: "card summary" },
     el("div", { class: "summary-figures" },
       figure(figures.gaffes, "gaffes"),
       figure(figures.erreurs, "erreurs"),
       figure(figures.imprecisions, "imprécisions"),
+      figure(figures.manquees, "occasions manquées"),
       figure(figures.accuracy == null ? "—" : figures.accuracy.toFixed(0), "précision (indicative)"),
     ),
+    good.length > 0 && el("p", { class: "summary-good", text: good.join(" · ") }),
   );
   const list = moments.length
     ? el("div", { class: "card" }, moments.map((record) =>
         el("button", { class: "moment", type: "button", onClick: () => onMoment(record) },
-          el("span", { class: "tag " + record.cls, text: CLASS_LABEL[record.cls] }),
+          el("span", { class: "tag " + record.cls, text: LABEL_TEXT[record.cls] }),
           el("span", { class: "moment-move num", text: `${moveNumber(record.ply)} ${game.moves[record.ply].san}` }),
           el("span", { class: "moment-loss num", text: `−${Math.round(record.loss)} %` }),
           el("span", { class: "moment-hint", text: "Rejouez ce moment : trouvez mieux que votre coup." }),
@@ -126,7 +133,13 @@ export function summaryCard({ figures, moments, game, onMoment }) {
 }
 
 /** Carte du coup sélectionné. */
-export function moveCard({ game, analysis, ply, explanation, onReplay, onCopy }) {
+const PRAISE = {
+  brillant: "Sacrifice de pièce, et c'est le meilleur coup ou presque.",
+  meilleur: "C'est le premier choix du moteur.",
+  ok: "Coup correct.",
+};
+
+export function moveCard({ game, analysis, ply, label, explanation, onReplay, onCopy }) {
   if (ply === 0) return el("div", { class: "card move-card" }, el("p", { class: "muted", text: "Position de départ. Utilisez les flèches, ou jouez un coup sur l'échiquier." }));
   const index = ply - 1;
   const move = game.moves[index];
@@ -139,18 +152,21 @@ export function moveCard({ game, analysis, ply, explanation, onReplay, onCopy })
   const myAfter = mine ? record.winAfter : 100 - record.winAfter;
   const head = el("div", { class: "move-head" },
     title,
-    el("span", { class: "tag " + (mine ? record.cls : "neutral"), text: mine ? CLASS_LABEL[record.cls] : "Adversaire" }),
+    el("span", { class: "tag " + (mine ? label.label : "neutral"), text: mine ? LABEL_TEXT[label.label] : "Adversaire" }),
+    mine && label.missed && el("span", { class: "tag manquee", text: "Occasion manquée" }),
     el("span", { class: "move-change num", text: `${percent(myBefore)} → ${percent(myAfter)}` }),
   );
   const body = [];
   if (!mine) {
     if (record.loss >= 10) body.push(el("p", { text: `Erreur de l'adversaire : vos chances passent de ${percent(myBefore)} à ${percent(myAfter)}.` }));
   } else if (record.cls === "ok") {
-    body.push(el("p", { class: "verdict good", text: record.source === "meilleur" ? "C'est le premier choix du moteur." : "Coup correct." }));
+    const text = label.label === "unique" ? `C'était le seul bon coup : le deuxième choix du moteur perdait ${Math.round(label.gap)} points.` : PRAISE[label.label];
+    body.push(el("p", { class: "verdict good", text }));
   } else {
     const before = analysis.positions[index];
     const after = analysis.positions[index + 1];
     body.push(
+      label.missed && el("p", { class: "verdict bad", text: "L'adversaire venait de se tromper : il y avait de quoi en profiter." }),
       el("div", { class: "label", text: "Meilleur coup" }),
       el("div", { class: "best" }, el("b", { text: explanation.bestSan || "—" }), el("span", { class: "line", text: lineText(game.fens[index], before.lines[0].pv, 6) })),
       el("div", { class: "label", text: "Pourquoi" }),
@@ -205,7 +221,7 @@ export function exploreCard({ explore, onBack }) {
 }
 
 /** Liste des coups de la partie. */
-export function movesCard({ game, analysis, ply, onGo }) {
+export function movesCard({ game, analysis, labels, ply, onGo }) {
   const cells = [];
   for (let index = 0; index < game.moves.length; index += 2) {
     cells.push(el("span", { class: "n num", text: String(index / 2 + 1) }));
@@ -215,10 +231,12 @@ export function movesCard({ game, analysis, ply, onGo }) {
         continue;
       }
       const record = analysis?.moves[j];
-      const marked = record && game.moves[j].color === game.me && record.cls !== "ok";
+      const mine = record && game.moves[j].color === game.me;
+      // Pastille : erreurs et coups remarquables du joueur ; les coups simplement corrects restent sans marque.
+      const mark = mine && !["ok", "meilleur"].includes(labels[j].label) ? labels[j].label : "";
       cells.push(
         el("button", { class: ply === j + 1 ? "current" : "", type: "button", onClick: () => onGo(j + 1) },
-          el("span", { class: "dot " + (marked ? record.cls : "") }),
+          el("span", { class: "dot " + mark }),
           game.moves[j].san,
         ),
       );

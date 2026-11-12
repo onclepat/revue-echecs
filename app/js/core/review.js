@@ -2,7 +2,8 @@
  * Synthèse d'une partie analysée : moments clés, compteurs, précision indicative, prompt pour une IA.
  * Module pur.
  */
-import { CLASS_LABEL, accuracy } from "./eval.js";
+import { accuracy } from "./eval.js";
+import { LABEL_TEXT, labelOf } from "./labels.js";
 import { lineText, moveNumber } from "./pgn.js";
 
 /** Coups du joueur, dans l'ordre de la partie. */
@@ -22,15 +23,21 @@ export function keyMoments(game, analysis, count) {
     .sort((a, b) => a.ply - b.ply);
 }
 
-/** Compteurs et précision indicative du joueur. */
-export function summary(game, analysis) {
+/**
+ * Compteurs et précision indicative du joueur.
+ * @param {object[]} labels étiquettes de tous les coups (labels.js)
+ */
+export function summary(game, analysis, labels) {
   const mine = myMoves(game, analysis);
-  const count = (cls) => mine.filter((record) => record.cls === cls).length;
+  const count = (label) => mine.filter((record) => labels[record.ply].label === label).length;
   return {
     accuracy: accuracy(mine.map((record) => record.loss)),
     imprecisions: count("imprecision"),
     erreurs: count("erreur"),
     gaffes: count("gaffe"),
+    brillants: count("brillant"),
+    uniques: count("unique"),
+    manquees: mine.filter((record) => labels[record.ply].missed).length,
   };
 }
 
@@ -56,7 +63,7 @@ Ouverture : ${game.opening || "inconnue"}
 Coups joués avant : ${lineText(game.fens[0], played, 999) || "(début de partie)"}
 Position avant mon coup (FEN) : ${game.fens[ply]}
 
-Mon coup : ${moveNumber(ply)} ${move.san}, classé « ${CLASS_LABEL[record.cls]} » par Stockfish.
+Mon coup : ${moveNumber(ply)} ${move.san}, classé « ${LABEL_TEXT[labelOf(game, analysis, ply).label]} » par Stockfish.
 Mes chances de gain : ${Math.round(record.winBefore)} % avant, ${Math.round(record.winAfter)} % après.
 Meilleur coup selon le moteur : ${lineText(game.fens[ply], before.lines[0].pv, 10)} (évaluation ${score(before.lines[0].score)} pour le camp au trait)${second}
 Après mon coup, meilleure suite de l'adversaire : ${reply}

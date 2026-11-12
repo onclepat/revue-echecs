@@ -66,7 +66,8 @@ test("moments clés : erreurs du joueur seulement, hors partie décidée, dans l
     moves: [record(0, 25, "gaffe"), record(1, 40, "gaffe"), record(2, 12, "erreur"), record(3, 0, "ok"), record(4, 30, "gaffe", true)],
   };
   assert.deepEqual(keyMoments(game, analysis, 3).map((r) => r.ply), [0, 2]);
-  const figures = summary(game, analysis);
+  const labels = analysis.moves.map((r) => ({ label: r.cls, missed: false }));
+  const figures = summary(game, analysis, labels);
   assert.deepEqual([figures.gaffes, figures.erreurs, figures.imprecisions], [2, 1, 0]);
 });
 
