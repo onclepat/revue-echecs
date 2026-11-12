@@ -6,6 +6,6 @@
   "license": "GPL-3.0-or-later",
   "scripts": {
     "start": "node tools/serve.mjs",
-    "test": "node --test app/tests/"
+    "test": "node --test \"app/tests/*.test.js\""
   }
 }
